@@ -30,7 +30,7 @@ jobs:
           cp web/*.js web/*.css /tmp/lawdocs-web/assets/
           python3 -m http.server 8795 --directory /tmp/lawdocs-web > /tmp/web.log 2>&1 &
       - run: npm run test:browser
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: browser-evidence
@@ -86,7 +86,7 @@ jobs:
           sudo /usr/local/sbin/lawdocs-release '${{ github.sha }}' "$(cut -d ' ' -f1 release.sha256)"
           python3 scripts/check_rollback.py '${{ github.sha }}'
           curl --fail http://127.0.0.1:8888/api/health
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release
           path: |
@@ -94,7 +94,7 @@ jobs:
             release.sha256
           retention-days: 1
           compression-level: 0
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: python-evidence
