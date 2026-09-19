@@ -1,0 +1,14 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+pythonpath = [".", "engines/crash_report/scripts", "engines/plea_reports"]
+addopts = "-ra"
+[tool.coverage.run]
+branch = true
+source = ["server", "delivery", "retention", "app", "anchored", "extract", "export", "export_workbook_portable", "households", "local_vision", "apple_vision", "pdf_only", "review_app", "source_paths", "verify_delivery"]
+[tool.coverage.report]
+show_missing = true
+[tool.ruff]
+line-length = 100
+extend-exclude = ["tmp", "output", "migration", "engines/*/outputs", "engines/*/data", "engines/*/tmp", ".venv"]
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

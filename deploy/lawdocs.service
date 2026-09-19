@@ -1,0 +1,31 @@
+[Unit]
+Description=Lawdocs report workspace
+After=network.target
+
+[Service]
+Type=simple
+User=lawdocs
+Group=lawdocs
+WorkingDirectory=/opt/lawdocs
+Environment=JOB_RETENTION_HOURS=48
+Environment=PUBLIC_ORIGIN=https://lawdocs.dock108.dev
+Environment=CRASH_WORKBOOK=portable
+Environment=CRASH_OCR=rapidocr
+Environment=CRASH_ISOLATE_PAGES=1
+Environment=PLEA_TESSERACT=/opt/lawdocs/tesseract/bin/tesseract
+Environment=TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
+Environment=CRASH_SKIP_PREVIEWS=1
+Environment=OMP_THREAD_LIMIT=1
+Environment=TZ=America/New_York
+ExecStart=/opt/lawdocs/.venv/bin/python /opt/lawdocs/server.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

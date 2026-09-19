@@ -1,0 +1,61 @@
+name: Install on a fresh host
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: Authorized Hetzner host with bootstrap key installed
+        default: '62.238.114.86'
+        required: true
+      release_run:
+        description: Successful CI and deployment run ID to install
+        required: true
+      site:
+        description: DNS name already pointed at that host
+        default: lawdocs.dock108.dev
+        required: true
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: lawdocs-production
+  cancel-in-progress: false
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    environment: bootstrap
+    steps:
+      - name: Resolve an already tested release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.release_run }}
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api repos/${{ github.repository }}/actions/runs/"$RUN_ID" > run.json
+          python3 -c 'import json,os; r=json.load(open("run.json")); assert r["conclusion"]=="success" and r["head_branch"]=="main" and r["path"]==".github/workflows/ci.yml"; open(os.environ["GITHUB_OUTPUT"],"a").write("sha="+r["head_sha"]+"\n")'
+          gh run download "$RUN_ID" --repo '${{ github.repository }}' --name release
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+          path: source
+      - name: Bootstrap and deploy verified release
+        env:
+          BOOTSTRAP_KEY: ${{ secrets.HETZNER_BOOTSTRAP_KEY }}
+          KNOWN_HOSTS: ${{ secrets.HETZNER_KNOWN_HOSTS }}
+          HOST: ${{ inputs.host }}
+          SITE: ${{ inputs.site }}
+          RELEASE: ${{ steps.release.outputs.sha }}
+        run: |
+          [[ "$HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$SITE" =~ ^[a-zA-Z0-9.-]+$ ]]
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$BOOTSTRAP_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/*
+          sha256sum -c release.sha256
+          ssh -o StrictHostKeyChecking=yes root@"$HOST" 'mkdir -p /opt/lawdocs/deploy'
+          scp source/deploy/{bootstrap.sh,release.py,receive.py,container.service,deploy-key.pub} root@"$HOST":/opt/lawdocs/deploy/
+          ssh root@"$HOST" "cd /opt/lawdocs && bash deploy/bootstrap.sh $SITE"
+          scp release.tar.gz root@"$HOST":/opt/lawdocs/incoming/"$RELEASE".tar.gz
+          ssh root@"$HOST" "/usr/local/sbin/lawdocs-release $RELEASE $(cut -d ' ' -f1 release.sha256)"
+          curl --fail "https://$SITE/api/health"

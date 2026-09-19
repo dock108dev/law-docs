@@ -1,0 +1,15 @@
+[Unit]
+Description=Lawdocs document workspace
+After=docker.service network-online.target
+Requires=docker.service
+[Service]
+EnvironmentFile=/etc/lawdocs/release.env
+ExecStartPre=-/usr/bin/docker rm -f lawdocs
+ExecStart=/usr/bin/docker run --rm --name lawdocs --network host --user ${APP_UID}:${APP_GID} --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp:rw,nosuid,size=768m --memory 2500m --pids-limit 256 --env-file /etc/lawdocs/app.env -e LAW_DOCS_RELEASE=${RELEASE} -v /opt/lawdocs/shared:/data lawdocs:${RELEASE}
+ExecStop=/usr/bin/docker stop -t 30 lawdocs
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+TimeoutStopSec=45
+[Install]
+WantedBy=multi-user.target
