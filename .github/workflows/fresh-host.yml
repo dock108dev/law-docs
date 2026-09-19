@@ -32,7 +32,7 @@ jobs:
         run: |
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           gh api repos/${{ github.repository }}/actions/runs/"$RUN_ID" > run.json
-          python3 -c 'import json,os; r=json.load(open("run.json")); assert r["conclusion"]=="success" and r["head_branch"]=="main" and r["path"]==".github/workflows/ci.yml"; open(os.environ["GITHUB_OUTPUT"],"a").write("sha="+r["head_sha"]+"\n")'
+          python3 -c 'import json,os; r=json.load(open("run.json")); assert r["conclusion"]=="success" and r["head_branch"]=="main" and r["path"]==".github/workflows/ci.yml" and r["event"] in ("push","workflow_dispatch") and r["head_repository"]["full_name"]==os.environ["GITHUB_REPOSITORY"]; open(os.environ["GITHUB_OUTPUT"],"a").write("sha="+r["head_sha"]+"\n")'
           gh run download "$RUN_ID" --repo '${{ github.repository }}' --name release
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
