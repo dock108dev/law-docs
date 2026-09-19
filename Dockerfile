@@ -5,7 +5,7 @@ RUN curl -fsSL https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.
 FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends liblept5 libgl1 libglib2.0-0 tesseract-ocr-eng tesseract-ocr-osd && rm -rf /var/lib/apt/lists/*
 COPY --from=ocr-build /opt/tesseract /opt/tesseract
-ENV PATH="/opt/tesseract/bin:/opt/venv/bin:$PATH" LD_LIBRARY_PATH=/opt/tesseract/lib TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata PLEA_TESSERACT=/opt/tesseract/bin/tesseract PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 CRASH_WORKBOOK=portable CRASH_OCR=rapidocr CRASH_ISOLATE_PAGES=1 CRASH_SKIP_PREVIEWS=1 OMP_THREAD_LIMIT=1 TZ=America/New_York
+ENV PATH="/opt/tesseract/bin:/opt/venv/bin:$PATH" LD_LIBRARY_PATH=/opt/tesseract/lib TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata PLEA_TESSERACT=/opt/tesseract/bin/tesseract HOME=/tmp XDG_CACHE_HOME=/tmp/.cache PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 CRASH_WORKBOOK=portable CRASH_OCR=rapidocr CRASH_ISOLATE_PAGES=1 CRASH_SKIP_PREVIEWS=1 OMP_THREAD_LIMIT=1 TZ=America/New_York
 WORKDIR /app
 COPY deploy/requirements.lock /tmp/requirements.lock
 RUN python -m venv /opt/venv && pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock

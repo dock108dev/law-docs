@@ -58,4 +58,6 @@ jobs:
           ssh root@"$HOST" "cd /opt/lawdocs && bash deploy/bootstrap.sh $SITE"
           scp release.tar.gz root@"$HOST":/opt/lawdocs/incoming/"$RELEASE".tar.gz
           ssh root@"$HOST" "/usr/local/sbin/lawdocs-release $RELEASE $(cut -d ' ' -f1 release.sha256)"
-          curl --fail "https://$SITE/api/health"
+          ssh root@"$HOST" "rm -f /opt/lawdocs/incoming/$RELEASE.tar.gz"
+          curl --fail "https://$SITE/api/health" > health.json
+          python3 -c 'import json,os; r=json.load(open("health.json")); assert r["release"]==os.environ["RELEASE"]; assert r["retention_hours"]==48'

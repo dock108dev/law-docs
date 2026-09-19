@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+env:
+  DOCKER_BUILD_RECORD_UPLOAD: false
 permissions:
   contents: read
 concurrency:
