@@ -4,13 +4,15 @@ import json, sys
 from pathlib import Path
 
 report = json.loads(Path(sys.argv[1] if len(sys.argv) > 1 else "coverage.json").read_text())
-groups = {"shared": [], "crash": [], "plea": []}
+groups = {"shared": [], "crash": [], "plea": [], "deployment": []}
 for path, record in report["files"].items():
     group = (
         "crash"
         if "engines/crash_report/" in path
         else "plea"
         if "engines/plea_reports/" in path
+        else "deployment"
+        if path.startswith("deploy/")
         else "shared"
     )
     groups[group].append(record["summary"])

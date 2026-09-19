@@ -6,6 +6,8 @@ from pathlib import Path
 
 ROOT = Path("/opt/lawdocs")
 CONFIG = Path("/etc/lawdocs")
+UNITS = Path("/etc/systemd/system")
+LOCKFILE = Path("/run/lock/lawdocs-deploy.lock")
 
 
 def run(*args, **kw):
@@ -29,7 +31,7 @@ def wait_health(commit, port=8795):
 
 
 def smoke(commit, port, data):
-    run(
+    result = run(
         "docker",
         "run",
         "--rm",
@@ -42,15 +44,16 @@ def smoke(commit, port, data):
         f"http://127.0.0.1:{port}",
         "--release",
         commit,
+        capture_output=True,
+        text=True,
     )
-    # Synthetic checks are removed immediately, rather than waiting 48 hours.
-    for kind in ("crash", "plea"):
-        for directory in (data / kind).glob("*"):
-            meta = directory / ("batch.json" if kind == "crash" else "result.json")
-            if meta.exists():
-                record = json.loads(meta.read_text())
-                if record.get("name", record.get("filename")) == "synthetic-ci.pdf":
-                    shutil.rmtree(directory)
+    report = json.loads(result.stdout.strip().splitlines()[-1])
+    assert report["result"] == "passed"
+    for kind, ident in report["synthetic_jobs"]:
+        if kind not in ("crash", "plea") or not re.fullmatch("[a-f0-9]{32}", ident):
+            raise ValueError("Invalid synthetic check identity")
+        shutil.rmtree(data / kind / ident)
+    print("Synthetic upload/download check passed")
 
 
 def main(commit, digest):
@@ -61,7 +64,7 @@ def main(commit, digest):
         raise ValueError("Symlink artifact forbidden")
     if hashlib.sha256(artifact.read_bytes()).hexdigest() != digest:
         raise ValueError("Artifact checksum mismatch")
-    with open("/run/lock/lawdocs-deploy.lock", "w") as lock:
+    with LOCKFILE.open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         run("docker", "load", "-i", str(artifact))
         uid = pwd.getpwnam("lawdocs").pw_uid
@@ -121,8 +124,8 @@ def main(commit, digest):
                 (CONFIG / "release.env").read_bytes() if (CONFIG / "release.env").exists() else None
             )
             old_unit = (
-                Path("/etc/systemd/system/lawdocs.service").read_bytes()
-                if Path("/etc/systemd/system/lawdocs.service").exists()
+                (UNITS / "lawdocs.service").read_bytes()
+                if (UNITS / "lawdocs.service").exists()
                 else None
             )
             (CONFIG / "release.env").write_text(f"RELEASE={commit}\nAPP_UID={uid}\nAPP_GID={gid}\n")
@@ -131,9 +134,7 @@ def main(commit, digest):
             (CONFIG / "app.env").write_text(
                 f"PUBLIC_ORIGIN={origin}\nJOB_RETENTION_HOURS=48\nDRAIN_FILE=/data/.draining\n"
             )
-            shutil.copy(
-                "/etc/systemd/system/lawdocs.service.next", "/etc/systemd/system/lawdocs.service"
-            )
+            shutil.copy(UNITS / "lawdocs.service.next", UNITS / "lawdocs.service")
             run("systemctl", "daemon-reload")
             run("systemctl", "enable", "lawdocs")
             try:
@@ -145,7 +146,7 @@ def main(commit, digest):
                 if previous is not None:
                     (CONFIG / "release.env").write_bytes(previous)
                 if old_unit is not None:
-                    Path("/etc/systemd/system/lawdocs.service").write_bytes(old_unit)
+                    (UNITS / "lawdocs.service").write_bytes(old_unit)
                 run("systemctl", "daemon-reload")
                 run("systemctl", "restart", "lawdocs")
                 if previous is not None:
