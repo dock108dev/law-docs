@@ -11,7 +11,7 @@ A focused workspace for NJ crash reports and municipal plea calendars. Upload a 
 
 ## Local development
 
-Use Python 3.12+, Node 22.18+, and Tesseract with English and orientation data. On macOS install Tesseract with your package manager. On Debian/Ubuntu install `tesseract-ocr`, `libgl1`, and `libglib2.0-0`.
+Use Python 3.14+, Node 22.18+, and Tesseract with English and orientation data. On macOS install Tesseract with your package manager. On Debian/Ubuntu install `tesseract-ocr`, `libgl1`, and `libglib2.0-0`.
 
 On a clean checkout, run `bash scripts/dev-setup.sh`, then `./start.command`. The app opens at http://127.0.0.1:8795. Local expiry is disabled by default; `JOB_RETENTION_HOURS=48` enables the hosted policy. The production Docker image pins the Python runtime, dependency hashes, OCR source version, and model hashes.
 

@@ -54,3 +54,4 @@
 !/.dockerignore
 !/docs/
 !/docs/**
+tests/.DS_Store
