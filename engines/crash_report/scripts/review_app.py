@@ -8,9 +8,10 @@ from urllib.parse import urlparse, parse_qs, unquote
 import pymupdf as fitz
 from export import export_bundle
 from verify_delivery import verify
+from safe_paths import contained
 
 ROOT = Path(__file__).resolve().parents[1]
-STORE = Path(os.environ.get("CRASH_BATCHES", ROOT / "data/batches")).resolve()
+STORE = contained(os.environ.get("CRASH_BATCHES", ROOT / "data/batches"))
 KEYS = [
     "first_name",
     "last_name",
@@ -28,12 +29,17 @@ def now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def header_value(value):
+    return str(value).replace("\r", "").replace("\n", "")
+
+
 def read(p):
-    return json.loads(p.read_text())
+    return json.loads(contained(p).read_text())
 
 
 def save(p, d):
-    t = p.with_suffix(".tmp")
+    p = contained(p)
+    t = contained(p.with_suffix(".tmp"))
     t.write_text(json.dumps(d, indent=2))
     t.replace(p)
 
@@ -41,7 +47,7 @@ def save(p, d):
 def batch(b):
     if not re.fullmatch("[a-f0-9]{32}", b):
         raise ValueError("Invalid batch")
-    return STORE / b
+    return contained(STORE / b, STORE)
 
 
 def candidates(m):
@@ -199,7 +205,7 @@ def paired_export(p, revision):
         raise ValueError("Approve at least one recipient before export.")
     m["correction_status"] = (
         "Isolated technical test; not owner acceptance"
-        if (p / "batch.json").exists() and read(p / "batch.json").get("test")
+        if contained(p / "batch.json", p).exists() and read(p / "batch.json").get("test")
         else "Reviewed locally; original extraction retained"
     )
     m["review_decisions"] = d
@@ -215,7 +221,7 @@ def paired_export(p, revision):
         for rid, a in d["people"].items()
     ]
     version = f"v{len(d['exports']) + 1:03d}-r{d['revision']}"
-    out = p / "exports" / version
+    out = contained(p / "exports" / version, p)
     export_bundle(m, raw, out)
     save(out / "verification.json", verify(out, raw))
     save(out / "decisions.json", d)
@@ -246,7 +252,7 @@ def extract(p):
 
 def _extract(p):
     try:
-        with (p / "progress.log").open("w") as log:
+        with contained(p / "progress.log", p).open("w") as log:
             run = subprocess.run(
                 [
                     sys.executable,
@@ -277,14 +283,16 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def send(self, data, kind="application/json", code=200):
+    def send(self, data, kind="application/json", code=200, headers=()):
         if not isinstance(data, bytes):
             data = json.dumps(data).encode()
         self.send_response(code)
-        self.send_header("Content-Type", kind)
+        self.send_header("Content-Type", header_value(kind))
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
+        for key, value in headers:
+            self.send_header(header_value(key), header_value(value))
         self.end_headers()
         self.wfile.write(data)
 
@@ -311,12 +319,11 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 )
             p = batch(parts[2])
-            meta = read(p / "batch.json")
+            meta = read(contained(p / "batch.json", p))
             if len(parts) == 3:
+                log = contained(p / "progress.log", p)
                 meta["progress"] = (
-                    (p / "progress.log").read_text()[-3000:]
-                    if (p / "progress.log").exists()
-                    else "Starting extraction"
+                    log.read_text()[-3000:] if log.exists() else "Starting extraction"
                 )
                 if meta["status"] == "ready":
                     m = read(p / "extraction/automatic.json")
@@ -345,18 +352,21 @@ class Handler(BaseHTTPRequestHandler):
                     )
             if parts[3] == "download":
                 version = parts[4]
+                if not re.fullmatch(r"v\d{3}-r\d+", version):
+                    raise ValueError("Incomplete or unknown export")
                 if version not in [x["version"] for x in read(p / "decisions.json")["exports"]]:
                     raise ValueError("Incomplete or unknown export")
-                data = (p / "exports" / version / "matched-pair.zip").read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type", "application/zip")
-                self.send_header(
-                    "Content-Disposition",
-                    f'attachment; filename="{p.name[:8]}-{version}-matched-pair.zip"',
+                data = contained(p / "exports" / version / "matched-pair.zip", p).read_bytes()
+                return self.send(
+                    data,
+                    "application/zip",
+                    headers=[
+                        (
+                            "Content-Disposition",
+                            f'attachment; filename="{p.name[:8]}-{version}-matched-pair.zip"',
+                        )
+                    ],
                 )
-                self.send_header("Content-Length", str(len(data)))
-                self.end_headers()
-                return self.wfile.write(data)
             raise ValueError("Unknown route")
         except Exception as e:
             self.send({"error": str(e)}, code=400)

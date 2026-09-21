@@ -4,6 +4,7 @@
 import argparse, hashlib, json
 from pathlib import Path
 from source_paths import source_path
+from safe_paths import contained
 from datetime import datetime
 import openpyxl
 import pymupdf as fitz
@@ -11,9 +12,10 @@ import numpy as np
 
 
 def verify(out, raw):
-    m = json.loads((out / "final.json").read_text())
-    manifest = json.loads((out / "proof-manifest.json").read_text())
-    w = openpyxl.load_workbook(out / "recipients.xlsx", data_only=False)
+    out = contained(out)
+    m = json.loads(contained(out / "final.json", out).read_text())
+    manifest = json.loads(contained(out / "proof-manifest.json", out).read_text())
+    w = openpyxl.load_workbook(contained(out / "recipients.xlsx", out), data_only=False)
     sheet = w["Recipients"]
     keys = [
         "first_name",
@@ -31,7 +33,7 @@ def verify(out, raw):
     )
     checks = []
     with (
-        fitz.open(out / "recipient-proofs.pdf") as proof,
+        fitz.open(contained(out / "recipient-proofs.pdf", out)) as proof,
         fitz.open(source_path(m["source_pdf"])) as source,
     ):
         assert sheet.max_row - 1 == len(proof) == len(manifest) == len(m["recipients"])

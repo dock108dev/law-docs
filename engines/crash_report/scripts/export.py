@@ -5,14 +5,15 @@ import argparse, hashlib, json, subprocess, os
 import uuid
 from pathlib import Path
 from source_paths import source_path
+from safe_paths import contained
 import pymupdf as fitz
 
 
 def export_bundle(model, raw, out):
-    target = Path(out)
+    target = contained(out)
     if target.exists():
         raise FileExistsError(f"Choose a new output directory: {target}")
-    out = target.with_name(target.name + ".building-" + uuid.uuid4().hex[:8])
+    out = contained(target.with_name(target.name + ".building-" + uuid.uuid4().hex[:8]))
     out.mkdir(parents=True, exist_ok=False)
     data = source_path(model["source_pdf"]).read_bytes()
     assert hashlib.sha256(data).hexdigest() == model["source_sha256"], "Source PDF changed"
@@ -56,37 +57,39 @@ def export_bundle(model, raw, out):
         )
     if not len(proof):
         raise ValueError("No confirmed recipients; inspect review information")
-    proof.save(out / "recipient-proofs.pdf")
+    proof.save(contained(out / "recipient-proofs.pdf", out))
     proof.close()
-    (out / "final.json").write_text(json.dumps(model, indent=2))
-    (out / "proof-manifest.json").write_text(json.dumps(manifest, indent=2))
+    contained(out / "final.json", out).write_text(json.dumps(model, indent=2))
+    contained(out / "proof-manifest.json", out).write_text(json.dumps(manifest, indent=2))
     from export_workbook_portable import export_workbook
 
     export_workbook(model, out)
     # Reopen the saved proof; labels, source copies, counts and rectangles are checked after serialization.
-    with fitz.open(out / "recipient-proofs.pdf") as saved:
+    with fitz.open(contained(out / "recipient-proofs.pdf", out)) as saved:
         assert len(saved) == len(model["recipients"]) == len(manifest)
         for p, m in zip(saved, manifest):
             assert m["label"] in p.get_text()
             assert len(p.get_drawings()) >= len(m["highlights"])
             p.get_pixmap(matrix=fitz.Matrix(1.6, 1.6)).save(
-                out / f"proof-{m['proof_page']:02d}.png"
+                contained(out / f"proof-{m['proof_page']:02d}.png", out)
             )
-    (out / "COMPLETE.json").write_text(
+    contained(out / "COMPLETE.json", out).write_text(
         json.dumps(
             {
                 "recipient_count": len(manifest),
                 "proof_pages": len(manifest),
                 "source_sha256": model["source_sha256"],
-                "excel_sha256": hashlib.sha256((out / "recipients.xlsx").read_bytes()).hexdigest(),
+                "excel_sha256": hashlib.sha256(
+                    contained(out / "recipients.xlsx", out).read_bytes()
+                ).hexdigest(),
                 "proof_sha256": hashlib.sha256(
-                    (out / "recipient-proofs.pdf").read_bytes()
+                    contained(out / "recipient-proofs.pdf", out).read_bytes()
                 ).hexdigest(),
             },
             indent=2,
         )
     )
-    out.rename(target)
+    contained(out).rename(contained(target))
     return manifest
 
 

@@ -98,6 +98,12 @@ def test_decisions(batch):
             r.update(p, {"revision": 4, "id": ident, "status": "approved"})
     with pytest.raises(ValueError):
         r.batch("../bad")
+    from safe_paths import contained
+
+    with pytest.raises(ValueError):
+        contained("/etc/passwd")
+    assert "\r" not in r.header_value("a\r\nb")
+    assert r.header_value("plain") == "plain"
 
 
 def test_handler_and_extraction(batch, monkeypatch):

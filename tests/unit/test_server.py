@@ -114,4 +114,10 @@ def test_send():
     h.end_headers = Mock()
     h.send({"ok": True}, headers=[("X-Test", "yes")])
     assert json.loads(h.wfile.getvalue()) == {"ok": True}
+    h.send_header.reset_mock()
+    h.send(b"x", headers=[("X-Inject", "a\r\nSet-Cookie: x")])
+    assert all(
+        "\n" not in call.args[1] and "\r" not in call.args[1]
+        for call in h.send_header.call_args_list
+    )
     h.log_message("ignored")

@@ -22,6 +22,10 @@ REQUEST_LOCK = threading.Lock()
 NAV = """<div id="workspace-nav"><a href="/">Report workspace</a><a href="/crash/">Crash reports</a><a href="/plea/">Plea calendars</a><span>Saved on this Mac</span></div><style>#workspace-nav{display:flex;align-items:center;gap:24px;padding:13px 28px;background:#102e35;color:#dceae6;font:14px -apple-system,BlinkMacSystemFont,sans-serif}#workspace-nav a{color:inherit;text-decoration:none}#workspace-nav a:first-child{font-weight:700;color:white}#workspace-nav span{margin-left:auto;font-size:12px}.layout{height:calc(100vh - 202px)!important}@media(max-width:650px){#workspace-nav{gap:14px;padding:12px;flex-wrap:wrap}#workspace-nav span{display:none}}</style>"""
 
 
+def header_value(value):
+    return str(value).replace("\r", "").replace("\n", "")
+
+
 def adapt(data, content_type, kind):
     if not any(t in content_type for t in ("text/html", "javascript", "text/css")):
         return data
@@ -47,12 +51,12 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(data, bytes):
             data = json.dumps(data).encode()
         self.send_response(status)
-        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Type", header_value(content_type))
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         for key, value in headers:
-            self.send_header(key, value)
+            self.send_header(header_value(key), header_value(value))
         self.end_headers()
         self.wfile.write(data)
 
