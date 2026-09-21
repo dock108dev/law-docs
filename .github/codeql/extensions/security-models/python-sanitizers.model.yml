@@ -1,0 +1,15 @@
+extensions:
+  - addsTo:
+      pack: codeql/python-all
+      extensible: barrierModel
+    data:
+      - ["safe_paths", "Member[contained].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[safe_open].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[read_text].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[read_bytes].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[write_text].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[write_bytes].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[exists].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[mkdir].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[rename].ReturnValue", "path-injection"]
+      - ["safe_paths", "Member[replace].ReturnValue", "path-injection"]

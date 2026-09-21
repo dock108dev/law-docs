@@ -8,7 +8,17 @@ from urllib.parse import urlparse, parse_qs, unquote
 import pymupdf as fitz
 from export import export_bundle
 from verify_delivery import verify
-from safe_paths import contained
+from safe_paths import (
+    contained,
+    exists,
+    mkdir,
+    read_bytes,
+    read_text,
+    replace,
+    safe_open,
+    write_bytes,
+    write_text,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 STORE = contained(os.environ.get("CRASH_BATCHES", ROOT / "data/batches"))
@@ -34,14 +44,14 @@ def header_value(value):
 
 
 def read(p):
-    return json.loads(contained(p).read_text())
+    return json.loads(read_text(contained(p)))
 
 
 def save(p, d):
     p = contained(p)
     t = contained(p.with_suffix(".tmp"))
-    t.write_text(json.dumps(d, indent=2))
-    t.replace(p)
+    write_text(t, json.dumps(d, indent=2))
+    replace(t, p)
 
 
 def batch(b):
@@ -205,7 +215,7 @@ def paired_export(p, revision):
         raise ValueError("Approve at least one recipient before export.")
     m["correction_status"] = (
         "Isolated technical test; not owner acceptance"
-        if contained(p / "batch.json", p).exists() and read(p / "batch.json").get("test")
+        if exists(contained(p / "batch.json", p)) and read(p / "batch.json").get("test")
         else "Reviewed locally; original extraction retained"
     )
     m["review_decisions"] = d
@@ -252,7 +262,7 @@ def extract(p):
 
 def _extract(p):
     try:
-        with contained(p / "progress.log", p).open("w") as log:
+        with safe_open(contained(p / "progress.log", p), "w") as log:
             run = subprocess.run(
                 [
                     sys.executable,
@@ -322,9 +332,7 @@ class Handler(BaseHTTPRequestHandler):
             meta = read(contained(p / "batch.json", p))
             if len(parts) == 3:
                 log = contained(p / "progress.log", p)
-                meta["progress"] = (
-                    log.read_text()[-3000:] if log.exists() else "Starting extraction"
-                )
+                meta["progress"] = read_text(log)[-3000:] if exists(log) else "Starting extraction"
                 if meta["status"] == "ready":
                     m = read(p / "extraction/automatic.json")
                     raw = read(p / "extraction/raw.json")
@@ -356,7 +364,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("Incomplete or unknown export")
                 if version not in [x["version"] for x in read(p / "decisions.json")["exports"]]:
                     raise ValueError("Incomplete or unknown export")
-                data = contained(p / "exports" / version / "matched-pair.zip", p).read_bytes()
+                data = read_bytes(contained(p / "exports" / version / "matched-pair.zip", p))
                 return self.send(
                     data,
                     "application/zip",
@@ -400,8 +408,8 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("PDF has no pages")
                 bid = uuid.uuid4().hex
                 p = batch(bid)
-                p.mkdir(parents=True)
-                (p / "source.pdf").write_bytes(data)
+                mkdir(p, parents=True)
+                write_bytes(p / "source.pdf", data)
                 save(
                     p / "batch.json",
                     {
@@ -427,7 +435,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    STORE.mkdir(parents=True, exist_ok=True)
+    mkdir(STORE, parents=True, exist_ok=True)
     for f in STORE.glob("*/batch.json"):
         m = read(f)
         if m["status"] == "extracting":

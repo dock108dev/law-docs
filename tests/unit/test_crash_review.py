@@ -102,6 +102,12 @@ def test_decisions(batch):
 
     with pytest.raises(ValueError):
         contained("/etc/passwd")
+    from safe_paths import exists, read_text
+
+    with pytest.raises(ValueError):
+        exists("/etc/passwd")
+    with pytest.raises(ValueError):
+        read_text("/etc/passwd")
     assert "\r" not in r.header_value("a\r\nb")
     assert r.header_value("plain") == "plain"
 

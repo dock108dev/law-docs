@@ -1,0 +1,7 @@
+name: law-docs/security-models
+version: 0.0.1
+library: true
+extensionTargets:
+  codeql/python-all: "*"
+dataExtensions:
+  - python-sanitizers.model.yml
