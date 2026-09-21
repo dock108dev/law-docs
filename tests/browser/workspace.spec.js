@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/health", (route) =>
@@ -67,6 +68,8 @@ test("documents, filters, focus and download", async ({ page }) => {
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download + proof sheet" }).click();
   expect((await download).suggestedFilename()).toBe("synthetic.zip");
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
   await page.screenshot({
     path: `test-results/workspace-${test.info().project.name}.png`,
     fullPage: true,

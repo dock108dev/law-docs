@@ -108,3 +108,11 @@ def test_input_audit_and_paths(tmp_path):
     ]:
         assert source_path(prefix + "/source.pdf") == ROOT / "source.pdf"
     assert source_path(tmp_path / "source.pdf") == tmp_path / "source.pdf"
+
+
+def test_migrated_job_store(monkeypatch, tmp_path):
+    monkeypatch.setenv("CRASH_BATCHES", str(tmp_path))
+    assert (
+        source_path("/opt/lawdocs/engines/crash_report/data/batches/job/source.pdf")
+        == tmp_path / "job/source.pdf"
+    )

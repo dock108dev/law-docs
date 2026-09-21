@@ -4,7 +4,8 @@ pythonpath = [".", "engines/crash_report/scripts", "engines/plea_reports"]
 addopts = "-ra"
 [tool.coverage.run]
 branch = true
-source = ["server", "delivery", "retention", "app", "anchored", "extract", "export", "export_workbook_portable", "households", "local_vision", "apple_vision", "pdf_only", "review_app", "source_paths", "verify_delivery"]
+source = ["server", "delivery", "retention", "app", "anchored", "extract", "export", "export_workbook_portable", "households", "local_vision", "apple_vision", "pdf_only", "review_app", "source_paths", "verify_delivery", "deploy"]
+omit = ["deploy/probe*.py", "deploy/qualify*.py", "deploy/verify_crash_qualification.py"]
 [tool.coverage.report]
 show_missing = true
 [tool.ruff]

@@ -1,11 +1,11 @@
-FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS ocr-build
+FROM python:3.14.7-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS ocr-build
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl g++ make autoconf automake libtool pkg-config libleptonica-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 RUN curl -fsSL https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.1.tar.gz -o tesseract.tar.gz && echo 'a7a3f2a7420cb6a6a94d80c24163e183cf1d2f1bed2df3bbc397c81808a57237  tesseract.tar.gz' | sha256sum -c - && tar xzf tesseract.tar.gz && cd tesseract-5.5.1 && ./autogen.sh && ./configure --prefix=/opt/tesseract --disable-openmp && make -j2 && make install
-FROM python:3.12.14-slim-bookworm@sha256:782412e85d0f0984994c290652577d4018aff08145c85b262bb63dc0c7522254 AS runtime
+FROM python:3.14.7-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends liblept5 libgl1 libglib2.0-0 tesseract-ocr-eng tesseract-ocr-osd && rm -rf /var/lib/apt/lists/*
 COPY --from=ocr-build /opt/tesseract /opt/tesseract
-ENV PATH="/opt/tesseract/bin:/opt/venv/bin:$PATH" LD_LIBRARY_PATH=/opt/tesseract/lib TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata PLEA_TESSERACT=/opt/tesseract/bin/tesseract PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 CRASH_WORKBOOK=portable CRASH_OCR=rapidocr CRASH_ISOLATE_PAGES=1 CRASH_SKIP_PREVIEWS=1 OMP_THREAD_LIMIT=1 TZ=America/New_York
+ENV PATH="/opt/tesseract/bin:/opt/venv/bin:$PATH" LD_LIBRARY_PATH=/opt/tesseract/lib TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata PLEA_TESSERACT=/opt/tesseract/bin/tesseract HOME=/tmp XDG_CACHE_HOME=/tmp/.cache PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 CRASH_WORKBOOK=portable CRASH_OCR=rapidocr CRASH_ISOLATE_PAGES=1 CRASH_SKIP_PREVIEWS=1 OMP_THREAD_LIMIT=1 TZ=America/New_York
 WORKDIR /app
 COPY deploy/requirements.lock /tmp/requirements.lock
 RUN python -m venv /opt/venv && pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock

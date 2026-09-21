@@ -1,31 +1,32 @@
-# Lawdocs server
+# Hosted operations
 
-- URL: https://lawdocs.dock108.dev
-- Server: 62.238.114.86 (Ubuntu), SSH aliases `hetzner` and `lawdocs` on the owner's Mac.
-- App: `/opt/lawdocs`, unprivileged `lawdocs` service account.
-- Start/restart: `sudo systemctl restart lawdocs`. Logs: `sudo journalctl -u lawdocs`.
-- HTTPS: Caddy, `/etc/caddy/Caddyfile`. No login is required. The former local credentials file is obsolete.
-- The app and its processors bind to loopback only. Caddy exposes the public HTTPS site.
-- Saved documents: `engines/crash_report/data` and `engines/plea_reports/data`. Back up both directories with the original PDFs, extraction records, and saved decisions together.
-- Runtime: `/opt/lawdocs/.venv`, linked from both engines. `deploy/requirements.txt` records Python dependencies. A 2 GB swap file provides an additional memory reserve. Ubuntu packages: python3-venv, tesseract-ocr, caddy, libgl1, libglib2.0-0t64, rsync.
-- Plea OCR uses Tesseract 5.5.1 at `/opt/lawdocs/tesseract/bin/tesseract`, matching the Mac version. English and orientation language files match the Mac by SHA-256. The source archive and build log are under `/opt/lawdocs/build`.
-- Linux crash OCR runs each page in its own subprocess to release model memory. Upload extraction is serialized per workflow.
-- Linux uses local RapidOCR for crash text and Tesseract for numeric retries and scanned plea tables. Models are downloaded during setup, then reused locally. Extraction blocks Python network connections in both the parent and isolated page workers. macOS keeps Apple Vision.
-- Linux Excel generation uses the portable writer; the household records and source verification remain the same.
-- The local Mac copy remains independent. After cutover, new server uploads/edits are not automatically copied back to the Mac.
+Lawdocs is at https://lawdocs.dock108.dev on Hetzner `62.238.114.86`. HTTPS is handled by Caddy. No login is configured. The app listens only on loopback; host networking preserves that binding inside the container.
 
-Deployment copies source separately from data. Do not overwrite server data with an older Mac snapshot. Qualification output is archived on the Mac at `/Users/michaelfuscoletti/Desktop/report_workspace-archive/2026-09-18/server-qualification`; server test copies were removed.
+## Releases and data
 
-## Verified migration and known OCR differences
+- `lawdocs.service` starts the tested container image named `lawdocs:<commit>`.
+- `/etc/lawdocs/release.env` records the active commit and service UID/GID.
+- `/opt/lawdocs/shared/crash` and `/opt/lawdocs/shared/plea` contain live jobs. They are mounted at `/data` and never copied into release images or rollback backups.
+- Original upload timestamps govern deletion after 48 hours. Cleanup runs at startup, before requests, and every minute. The migrated plea timestamp mapping is stored separately in the shared folder.
+- `/opt/lawdocs/releases` retains small deployment receipts. Only three successful release images are retained. Uploaded release archives are removed by the SSH receiver.
+- Previous local deployment evidence is archived on the Mac under `report_workspace-archive/2026-09-18/server-qualification`; it is not on the server or in Git.
 
-All 2,383 saved data files matched their local SHA-256 hashes after transfer. The clean plea calendar reproduces all 131 rows and 69 slips. The sideways scan reproduces 133 rows; four OCR rows differ from the Mac and retain source-check notes, including one withheld case number. Details are in `deploy/scan-comparison.json`. Original saved results were not replaced by re-extraction.
+## Automatic deployment
 
-The fresh nine-page crash qualification, with targeted page re-runs after crop corrections, reproduces the two expected injured drivers in two households, including all eight mailing fields. In the local qualification archive, the comparison is in `current-crash/comparison.json`; workbook, proof, and original household-page checks are in `final-crash-delivery/verification.json`. The Linux engine uses two confident focused reads before accepting code 25. OCR remains subject to the source-proof checks shown in downloads.
+A passing main-branch Actions run builds one production image and transports its checksummed archive. The dedicated SSH key can invoke only the release receiver; it cannot run arbitrary shell commands or forward ports. A candidate starts on an isolated temporary store before live traffic switches. New uploads are paused while existing processing drains. Failed activation restores the previous service and commit; persistent jobs stay in place. Post-deploy checks use synthetic jobs and remove only their returned IDs.
 
-## Retention and synchronization
+Production secrets: `HETZNER_DEPLOY_KEY`, `HETZNER_KNOWN_HOSTS`. Repository variable: `HETZNER_HOST`. The `production` environment allows only main-branch deployments. SHA-pinned actions and hash-locked dependencies are reviewed through pull requests. Changes to host provisioning/receiver scripts are installed with the manual bootstrap workflow.
 
-The hosted service sets `JOB_RETENTION_HOURS=48`. Each entire job (source PDF, OCR images, extraction records, edits, and exports) expires 48 hours after its original upload time. Editing, downloading, or restarting does not extend it. Cleanup runs at startup, every minute, and before requests; expired jobs cannot be downloaded. Legacy uploads use the migrated upload timestamps or original source-file mtime. This includes the sample and old job snapshots. Local cleanup is disabled unless explicitly configured.
+## Fresh host / bootstrap
 
-The local and hosted application code and retained job data were synchronized after this change. This is a point-in-time sync, not continuous replication. OS-specific Python environments, OCR binaries, build caches, local archives, and development evidence are excluded. Do not push an old data snapshot back to the server: it can restore expired jobs. Server data is authoritative for future pulls; archive local-only jobs outside the active data folders before mirroring.
+Start an authorized Ubuntu host and point the intended DNS name at it. Install the dedicated bootstrap public key from the owner's local SSH files. Add that host's verified SSH host key to the `bootstrap` environment secret `HETZNER_KNOWN_HOSTS`.
 
-Use `deploy/sync-excludes.txt` for code synchronization so runtime files, report fixtures, archives, and job data are not accidentally copied or removed with source files. Job data must be reconciled separately. Required blank templates and NJ code references remain deployed.
+Run **Install on a fresh host** in Actions, supplying the hostname/IP, domain, and successful **CI and deployment** run ID. The workflow installs Docker, Caddy, the service account, deploy key, and service definitions, then installs the existing tested artifact. Its artifact is retained for one day; run CI again if it has expired. The bootstrap environment uses its own `HETZNER_BOOTSTRAP_KEY` and permits only main. The workflow is also an idempotent way to update host provisioning on the existing server.
+
+The CI runner performs a clean installation on its disposable Linux host before production deployment, including an intentionally broken release and exact-commit rollback check. It does not create billable Hetzner instances automatically.
+
+## Routine operations
+
+Use `systemctl status lawdocs`, `journalctl -u lawdocs`, and `docker logs lawdocs` for diagnosis. The public `/api/health` response reports the release commit, readiness, active requests, and retention hours. Do not copy old job snapshots into the shared store; that can resurrect expired reports. Local job stores are independent of the server after a point-in-time migration.
+
+The legacy native runtime remains available on the original host as an initial migration fallback; its data paths link to the shared store, so it does not retain a second copy of uploads.

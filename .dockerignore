@@ -21,3 +21,8 @@ engines/crash_report/*.pdf
 engines/crash_report/*.xlsx
 engines/plea_reports/docs/Calendar*
 engines/plea_reports/upload-times.json
+
+reports
+release.tar.gz
+release.sha256
+*.dockerbuild
