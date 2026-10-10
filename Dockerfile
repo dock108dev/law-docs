@@ -1,8 +1,9 @@
-FROM python:3.15.0rc3-slim-bookworm@sha256:ea93de1a70a03fffd10ad8cfde8f4ba969fe2658f0578af02855d1d32f49e6c2 AS ocr-build
+# Stay on 3.14 until onnxruntime publishes cp315 wheels on PyPI.
+FROM python:3.14.7-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS ocr-build
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl g++ make autoconf automake libtool pkg-config libleptonica-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 RUN curl -fsSL https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.1.tar.gz -o tesseract.tar.gz && echo 'a7a3f2a7420cb6a6a94d80c24163e183cf1d2f1bed2df3bbc397c81808a57237  tesseract.tar.gz' | sha256sum -c - && tar xzf tesseract.tar.gz && cd tesseract-5.5.1 && ./autogen.sh && ./configure --prefix=/opt/tesseract --disable-openmp && make -j2 && make install
-FROM python:3.15.0rc3-slim-bookworm@sha256:ea93de1a70a03fffd10ad8cfde8f4ba969fe2658f0578af02855d1d32f49e6c2 AS runtime
+FROM python:3.14.7-slim-bookworm@sha256:82bc3c539b8813ada9d68c63b40158fa002f7f33de9bf3312a3dfdc0620dff56 AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends liblept5 libgl1 libglib2.0-0 tesseract-ocr-eng tesseract-ocr-osd && rm -rf /var/lib/apt/lists/*
 COPY --from=ocr-build /opt/tesseract /opt/tesseract
 ENV PATH="/opt/tesseract/bin:/opt/venv/bin:$PATH" LD_LIBRARY_PATH=/opt/tesseract/lib TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata PLEA_TESSERACT=/opt/tesseract/bin/tesseract HOME=/tmp XDG_CACHE_HOME=/tmp/.cache PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 CRASH_WORKBOOK=portable CRASH_OCR=rapidocr CRASH_ISOLATE_PAGES=1 CRASH_SKIP_PREVIEWS=1 OMP_THREAD_LIMIT=1 TZ=America/New_York

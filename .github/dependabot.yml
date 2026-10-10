@@ -16,3 +16,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # onnxruntime 1.30.0 has no Python 3.15 PyPI wheels; keep 3.14.x until it does.
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
